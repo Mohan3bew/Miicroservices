@@ -4,6 +4,17 @@ This project uses Nexus for two purposes:
 - Dependency proxy/mirror (optional but recommended)
 - JAR publish during CD
 
+## 0) Local desktop Nexus (already added in this repo)
+
+Use [infra/nexus/README.md](../infra/nexus/README.md) to run Nexus locally with Docker Compose.
+
+Default local URL:
+- `http://localhost:8082`
+
+Important:
+- GitHub-hosted Actions runners cannot access your local machine (`localhost`).
+- For CD publishing from GitHub, Nexus must be reachable from the internet/VPN/static IP.
+
 ## 1) Create repositories in Nexus
 Create these repositories:
 - `maven-central-proxy` (proxy to Maven Central)
