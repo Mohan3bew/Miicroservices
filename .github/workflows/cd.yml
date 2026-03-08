@@ -42,22 +42,27 @@ jobs:
         run: ./mvnw -B clean package -DskipTests
 
       - name: Publish JAR to Nexus (optional)
-        if: ${{ vars.NEXUS_MAVEN_URL != '' && secrets.NEXUS_USERNAME != '' && secrets.NEXUS_PASSWORD != '' }}
         run: |
+          if [ -z "${NEXUS_MAVEN_URL:-}" ] || [ -z "${NEXUS_USERNAME:-}" ] || [ -z "${NEXUS_PASSWORD:-}" ]; then
+            echo "Nexus values are not fully configured. Skipping Nexus publish."
+            exit 0
+          fi
+
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml <<'EOF'
+          cat > ~/.m2/settings.xml <<EOF
           <settings>
             <servers>
               <server>
                 <id>nexus</id>
-                <username>${env.NEXUS_USERNAME}</username>
-                <password>${env.NEXUS_PASSWORD}</password>
+                <username>${NEXUS_USERNAME}</username>
+                <password>${NEXUS_PASSWORD}</password>
               </server>
             </servers>
           </settings>
           EOF
-          ./mvnw -B deploy -DskipTests -DaltDeploymentRepository=nexus::default::${{ vars.NEXUS_MAVEN_URL }}
+          ./mvnw -B deploy -DskipTests -DaltDeploymentRepository=nexus::default::${NEXUS_MAVEN_URL}
         env:
+          NEXUS_MAVEN_URL: ${{ vars.NEXUS_MAVEN_URL }}
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
