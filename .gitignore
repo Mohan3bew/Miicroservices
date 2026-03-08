@@ -1,0 +1,21 @@
+﻿# OS/editor
+.vscode/
+.idea/
+*.iml
+
+# Build outputs
+**/target/
+**/build/
+
+# Java
+*.class
+
+# Env
+.env
+.env.*
+
+# Logs
+*.log
+
+# Node (if added later)
+node_modules/

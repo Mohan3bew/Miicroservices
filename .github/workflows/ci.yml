@@ -1,0 +1,38 @@
+﻿name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+jobs:
+  identity-service-ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/identity-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build and Test
+        run: mvn -B clean verify
+
+      - name: Sonar Scan (optional)
+        if: ${{ vars.SONAR_HOST_URL != '' && secrets.SONAR_TOKEN != '' }}
+        run: mvn -B sonar:sonar -Dsonar.projectKey=marketplace-identity -Dsonar.host.url=${{ vars.SONAR_HOST_URL }} -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+
+      - name: Upload JAR
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: identity-service-jar
+          path: services/identity-service/target/*.jar
