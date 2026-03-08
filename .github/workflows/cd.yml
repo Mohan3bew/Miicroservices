@@ -66,7 +66,22 @@ jobs:
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
+      - name: Check Azure deploy prerequisites
+        id: azure_check
+        run: |
+          if [ -z "${AZURE_CLIENT_ID:-}" ] || [ -z "${AZURE_TENANT_ID:-}" ] || [ -z "${AZURE_SUBSCRIPTION_ID:-}" ]; then
+            echo "Azure credentials are not fully configured. Skipping deploy steps."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Azure Login (OIDC)
+        if: steps.azure_check.outputs.enabled == 'true'
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -74,9 +89,11 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: ACR Login
+        if: steps.azure_check.outputs.enabled == 'true'
         run: az acr login --name $ACR_NAME
 
       - name: Build and Push Image
+        if: steps.azure_check.outputs.enabled == 'true'
         run: |
           IMAGE="$ACR_NAME.azurecr.io/identity-service:${{ github.sha }}"
           docker build -t "$IMAGE" .
@@ -84,4 +101,5 @@ jobs:
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
       - name: Deploy to Container Apps
+        if: steps.azure_check.outputs.enabled == 'true'
         run: az containerapp update --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --image $IMAGE
