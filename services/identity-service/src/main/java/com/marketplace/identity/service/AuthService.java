@@ -6,6 +6,8 @@ import com.marketplace.identity.dto.RegisterRequest;
 import com.marketplace.identity.dto.RegisterResponse;
 import com.marketplace.identity.exception.InvalidCredentialsException;
 import com.marketplace.identity.exception.UserAlreadyExistsException;
+import com.marketplace.identity.model.UserEntity;
+import com.marketplace.identity.repository.UserRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -13,60 +15,60 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthService {
 
     private static final long TOKEN_EXPIRATION_SECONDS = 3600;
 
-    private final ConcurrentMap<String, UserRecord> usersByUsername = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String, String> usernameByEmail = new ConcurrentHashMap<>();
+    private final UserRepository userRepository;
 
+    public AuthService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Transactional
     public RegisterResponse register(RegisterRequest request) {
         String username = normalize(request.getUsername());
         String email = normalize(request.getEmail());
 
-        if (usersByUsername.containsKey(username) || usernameByEmail.containsKey(email)) {
+        if (userRepository.existsByUsernameOrEmail(username, email)) {
             throw new UserAlreadyExistsException("User already exists");
         }
 
-        UserRecord userRecord = new UserRecord(
-                UUID.randomUUID().toString(),
-                username,
-                email,
-                hashPassword(request.getPassword()),
-                Instant.now());
+        UserEntity userEntity = new UserEntity();
+        userEntity.setUserId(UUID.randomUUID().toString());
+        userEntity.setUsername(username);
+        userEntity.setEmail(email);
+        userEntity.setPasswordHash(hashPassword(request.getPassword()));
+        userEntity.setCreatedAt(Instant.now());
 
-        UserRecord existingUser = usersByUsername.putIfAbsent(username, userRecord);
-        if (existingUser != null) {
-            throw new UserAlreadyExistsException("User already exists");
-        }
-
-        String existingEmailUser = usernameByEmail.putIfAbsent(email, username);
-        if (existingEmailUser != null) {
-            usersByUsername.remove(username, userRecord);
+        try {
+            userRepository.saveAndFlush(userEntity);
+        } catch (DataIntegrityViolationException ex) {
             throw new UserAlreadyExistsException("User already exists");
         }
 
         return new RegisterResponse(
-                userRecord.userId(),
-                userRecord.username(),
-                userRecord.email(),
-                userRecord.createdAt().toString());
+                userEntity.getUserId(),
+                userEntity.getUsername(),
+                userEntity.getEmail(),
+                userEntity.getCreatedAt().toString());
     }
 
     public LoginResponse login(LoginRequest request) {
         String username = normalize(request.getUsername());
-        UserRecord userRecord = usersByUsername.get(username);
+        UserEntity userEntity = userRepository.findByUsername(username)
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid username or password"));
 
-        if (userRecord == null || !userRecord.passwordHash().equals(hashPassword(request.getPassword()))) {
+        if (!userEntity.getPasswordHash().equals(hashPassword(request.getPassword()))) {
             throw new InvalidCredentialsException("Invalid username or password");
         }
 
-        String token = "mock-jwt-" + userRecord.userId() + "-" + Instant.now().toEpochMilli();
+        String token = "mock-jwt-" + userEntity.getUserId() + "-" + Instant.now().toEpochMilli();
         return new LoginResponse(token, "Bearer", TOKEN_EXPIRATION_SECONDS);
     }
 
@@ -82,8 +84,5 @@ public class AuthService {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("Password hashing algorithm unavailable", ex);
         }
-    }
-
-    private record UserRecord(String userId, String username, String email, String passwordHash, Instant createdAt) {
     }
 }
