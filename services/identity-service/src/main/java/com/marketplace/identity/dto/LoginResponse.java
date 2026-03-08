@@ -1,4 +1,4 @@
-﻿package com.marketplace.identity.dto;
+package com.marketplace.identity.dto;
 
 public class LoginResponse {
 

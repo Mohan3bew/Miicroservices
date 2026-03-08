@@ -1,4 +1,4 @@
-﻿package com.marketplace.identity;
+package com.marketplace.identity;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

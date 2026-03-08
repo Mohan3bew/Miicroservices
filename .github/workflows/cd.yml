@@ -35,8 +35,11 @@ jobs:
           java-version: '21'
           cache: maven
 
+      - name: Ensure Maven Wrapper executable
+        run: chmod +x ./mvnw
+
       - name: Build JAR
-        run: mvn -B clean package -DskipTests
+        run: ./mvnw -B clean package -DskipTests
 
       - name: Publish JAR to Nexus (optional)
         if: ${{ vars.NEXUS_MAVEN_URL != '' && secrets.NEXUS_USERNAME != '' && secrets.NEXUS_PASSWORD != '' }}
@@ -53,7 +56,7 @@ jobs:
             </servers>
           </settings>
           EOF
-          mvn -B deploy -DskipTests -DaltDeploymentRepository=nexus::default::${{ vars.NEXUS_MAVEN_URL }}
+          ./mvnw -B deploy -DskipTests -DaltDeploymentRepository=nexus::default::${{ vars.NEXUS_MAVEN_URL }}
         env:
           NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
           NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
